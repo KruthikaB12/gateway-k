@@ -38,10 +38,10 @@ A web-based permission management system to digitize and streamline the student 
 
 #### 1.2 Request Form
 **Fields:**
-- Request Type: `Emergency` or `Casual`
+- Request Type: `Emergency` or `Casual` (visual label only, no special processing)
 - Reason/Description: Text area (max 500 characters)
 - Leave Date: Date picker (required)
-- Leave Time: Time picker (required)
+- Leave Time: Time picker (required) - **Single exit time only, no return time tracking**
 - Date of request (auto-captured)
 - Time of request (auto-captured)
 
@@ -49,11 +49,22 @@ A web-based permission management system to digitize and streamline the student 
 - All fields mandatory
 - Character limits enforced
 - Duplicate request prevention (no multiple pending requests)
+- Leave date cannot be in the past
+- Leave time must be future time if leave date is today
 
 #### 1.3 Submission Action
 - Save request to database with status: `PENDING_PARENT`
 - Generate unique request ID
-- Trigger SMS to parent
+- Trigger SMS to parent (using parent_phone from student profile)
+
+#### 1.4 Request Cancellation
+**Students can cancel requests at any stage before final HOD approval:**
+- Available for statuses: `PENDING_PARENT`, `PENDING_TEACHER`, `PENDING_HOD`
+- Not available for: `APPROVED`, `REJECTED_*`, `EXPIRED`
+- Action updates status to `CANCELLED_BY_STUDENT`
+- Sends notification SMS to parent if already approved by parent
+- Notifies teacher/HOD if request was in their queue
+- Logs cancellation timestamp and reason (optional)
 
 ---
 
@@ -77,7 +88,6 @@ Approve: [URL Link]
   - Leave date and time
   - Timestamp
 - Actions: `Approve` or `Reject` buttons
-- Optional: Parent comment field
 
 #### 2.3 Parent Action Processing
 **If Approved:**
@@ -110,7 +120,7 @@ Approve: [URL Link]
 - Click on request to view full details
 - See parent approval status and timestamp
 - Read complete reason/description
-- Actions: `Approve` or `Reject` with optional comment
+- Actions: `Approve` or `Reject`
 
 #### 3.3 Teacher Action Processing
 **If Approved:**
@@ -145,7 +155,7 @@ Approve: [URL Link]
 - View complete approval chain
 - See all previous approvals and timestamps
 - Review reason and comments
-- Actions: `Approve` or `Reject` with optional comment
+- Actions: `Approve` or `Reject'
 
 #### 4.3 HOD Action Processing
 **If Approved:**
@@ -176,7 +186,7 @@ Approve: [URL Link]
 ### Users Table
 ```
 id (PK)
-role (student/parent/teacher/hod/admin)
+role (student/teacher/hod/admin)
 email
 password_hash
 phone_number
@@ -184,6 +194,8 @@ name
 department_id (FK)
 class_id (FK)
 roll_number (for students)
+parent_phone (for students - stores parent/guardian contact)
+parent_name (for students - optional)
 created_at
 updated_at
 ```
@@ -193,22 +205,23 @@ updated_at
 id (PK)
 request_id (unique)
 student_id (FK)
-parent_id (FK)
 teacher_id (FK)
 hod_id (FK)
-request_type (emergency/casual)
+request_type (emergency/casual) - visual label only
 reason
 leave_date
-leave_time
-expires_at (calculated: leave_date + leave_time)
-status (pending_parent/pending_teacher/pending_hod/approved/rejected_by_parent/rejected_by_teacher/rejected_by_hod/expired)
+leave_time (single exit time, no return tracking)
+expires_at (calculated: leave_date + leave_time - request expires after student leaves)
+status (pending_parent/pending_teacher/pending_hod/approved/rejected_by_parent/rejected_by_teacher/rejected_by_hod/cancelled_by_student/expired)
 submitted_at
 parent_approved_at
 teacher_approved_at
 hod_approved_at
+cancelled_at
 parent_comment
 teacher_comment
 hod_comment
+cancellation_reason
 created_at
 updated_at
 ```
@@ -253,6 +266,8 @@ created_at
 - `POST /api/student/request` - Submit new request
 - `GET /api/student/requests` - Get student's request history
 - `GET /api/student/request/:id` - Get specific request details
+- `POST /api/student/cancel/:id` - Cancel pending request (any stage before final approval)
+- `GET /api/student/profile` - Get student profile with parent contact info
 
 ### Parent Endpoints
 - `GET /api/parent/request/:token` - View request via SMS link
@@ -307,12 +322,22 @@ created_at
 
 ## UI/UX Design
 
+### Mobile-First Design Philosophy
+**All interfaces designed mobile-first, then enhanced for desktop:**
+- Touch-friendly buttons (minimum 44x44px tap targets)
+- Responsive layouts that work on 320px+ screens
+- Optimized for one-handed use
+- Fast loading on mobile networks
+- Progressive Web App (PWA) capabilities for offline access
+
 ### Student Dashboard
 - Clean, mobile-responsive interface
-- "New Request" button prominently displayed
-- Request history table with status badges
-- Color-coded status indicators
+- "New Request" button prominently displayed (sticky bottom on mobile)
+- Request history table/cards with status badges
+- Color-coded status indicators (Emergency: red badge, Casual: blue badge)
 - Real-time status updates
+- "Cancel Request" button visible for pending requests
+- Swipe actions on mobile for quick cancel
 
 ### Parent Approval Page
 - Simple, single-purpose page
@@ -321,49 +346,56 @@ created_at
 - Mobile-optimized (most parents will access via phone)
 
 ### Teacher Dashboard
-- Batch approval capability
-- Quick filters (emergency/casual, date)
-- Sortable columns
+- Mobile-optimized card layout (switches to table on desktop)
+- Quick filters (emergency/casual, date) - horizontal scroll on mobile
+- Sortable columns (desktop) / sort dropdown (mobile)
 - Request details in modal/side panel
 - Notification badge for new requests
+- Pull-to-refresh on mobile
+- Batch selection with floating action button on mobile
 
 ### HOD Dashboard
-- Department-wide overview
-- Analytics widgets (pending count, approval rate, average time)
-- Advanced filtering and search
+- Department-wide overview with responsive grid
+- Analytics widgets (pending count, approval rate, average time) - stack vertically on mobile
+- Advanced filtering and search with collapsible filter panel
 - Export functionality for reports
-- Approval chain visualization
+- Approval chain visualization (horizontal scroll on mobile)
+- Gesture navigation for quick approvals on mobile
 
 ---
 
 ## Implementation Phases
 
-### Phase 1: Foundation (Week 1-2)
+### Phase 1: Foundation (Mobile-First)
 - Set up development environment
 - Database design and creation
 - User authentication system
-- Basic UI framework
+- Mobile-first UI framework (responsive design system)
+- PWA configuration for offline capability
+- Parent phone number in student profile setup
 
-### Phase 2: Core Workflow (Week 3-4)
-- Student request submission
-- Parent SMS integration
-- Parent approval page
+### Phase 2: Core Workflow
+- Student request submission with leave date/time validation
+- Student request cancellation feature
+- Parent SMS integration (using parent_phone from student profile)
+- Parent approval page (mobile-optimized)
 - Basic notification system
 
-### Phase 3: Faculty Approval (Week 5-6)
+### Phase 3: Faculty Approval
 - Teacher dashboard and approval flow
 - HOD dashboard and approval flow
 - Leave date/time tracking and display
 - Automatic expiry system (expires after leave time)
 - Complete notification system
 
-### Phase 4: Enhancement (Week 7-8)
+### Phase 4: Enhancement
 - Analytics and reporting
 - Admin panel
 - Audit logs
-- Mobile responsiveness optimization
+- Performance optimization
+- Advanced mobile features (push notifications, biometric login)
 
-### Phase 5: Testing & Deployment (Week 9-10)
+### Phase 5: Testing & Deployment
 - Unit testing
 - Integration testing
 - User acceptance testing
@@ -386,12 +418,15 @@ created_at
 - Authentication flow
 
 ### User Acceptance Tests
-- Student request submission with date/time
-- Parent approval via SMS link
-- Teacher batch approvals
+- Student request submission with date/time validation
+- Student cancellation at different approval stages
+- Parent approval via SMS link on mobile device
+- Teacher batch approvals on mobile and desktop
 - HOD final approval
-- Leave date/time accuracy
+- Leave date/time accuracy and display
 - Automatic expiry after leave time passes
+- Cancellation notifications to all relevant parties
+- Mobile responsiveness across all user roles
 
 ---
 
