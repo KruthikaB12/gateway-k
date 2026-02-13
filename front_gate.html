@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Gateway Permission System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; }
+        .header { background: #2c3e50; color: white; padding: 20px; text-align: center; }
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .card { background: white; border-radius: 8px; padding: 30px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .tabs { display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e0e0e0; }
+        .tab { padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; color: #666; border-bottom: 3px solid transparent; }
+        .tab.active { color: #3498db; border-bottom-color: #3498db; font-weight: bold; }
+        .section { display: none; }
+        .section.active { display: block; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #333; font-weight: 600; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        textarea { min-height: 100px; resize: vertical; }
+        .btn { padding: 12px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: 600; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .request-item { background: #f8f9fa; padding: 20px; margin-bottom: 15px; border-radius: 5px; border-left: 4px solid #3498db; }
+        .status { display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-approved { background: #d4edda; color: #155724; }
+        .status-rejected { background: #f8d7da; color: #721c24; }
+        .actions { display: flex; gap: 10px; margin-top: 15px; }
+        .logout-btn { float: right; background: #e74c3c; color: white; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; }
+        .flow-step { flex: 1; text-align: center; padding: 15px; background: #ecf0f1; border-radius: 5px; margin: 0 5px; }
+        .flow-step.completed { background: #d4edda; }
+        .flow-step.active { background: #fff3cd; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎓 Student Gateway Permission System</h1>
+        <p>Digital approval workflow - Eliminates classroom interruptions</p>
+    </div>
+
+    <div class="container">
+        <div id="loginSection" class="card">
+            <h2>Login</h2>
+            <div class="tabs">
+                <button class="tab active" onclick="switchLogin('student')">Student</button>
+                <button class="tab" onclick="switchLogin('teacher')">Teacher</button>
+                <button class="tab" onclick="switchLogin('hod')">HOD</button>
+                <button class="tab" onclick="switchLogin('parent')">Parent</button>
+            </div>
+
+            <div id="studentLogin" class="section active">
+                <div class="form-group"><label>Roll Number</label><input type="text" id="sRoll"></div>
+                <div class="form-group"><label>Password</label><input type="password" id="sPass"></div>
+                <button class="btn btn-primary" onclick="login('student')">Login</button>
+            </div>
+
+            <div id="teacherLogin" class="section">
+                <div class="form-group"><label>Email</label><input type="email" id="tEmail"></div>
+                <div class="form-group"><label>Password</label><input type="password" id="tPass"></div>
+                <button class="btn btn-primary" onclick="login('teacher')">Login</button>
+            </div>
+
+            <div id="hodLogin" class="section">
+                <div class="form-group"><label>Email</label><input type="email" id="hEmail"></div>
+                <div class="form-group"><label>Password</label><input type="password" id="hPass"></div>
+                <button class="btn btn-primary" onclick="login('hod')">Login</button>
+            </div>
+
+            <div id="parentLogin" class="section">
+                <div class="form-group"><label>Phone Number</label><input type="text" id="pPhone"></div>
+                <div class="form-group"><label>Request ID</label><input type="text" id="pRequestId"></div>
+                <button class="btn btn-primary" onclick="login('parent')">View Request</button>
+            </div>
+        </div>
+
+        <div id="studentDashboard" class="section">
+            <div class="card">
+                <h2>Student Dashboard <button class="logout-btn" onclick="logout()">Logout</button></h2>
+                <p>Welcome, <strong id="studentName"></strong></p>
+            </div>
+
+            <div class="card">
+                <h2>Submit Permission Request</h2>
+                <div class="form-group"><label>Request Type</label>
+                    <select id="requestType">
+                        <option value="casual">Casual</option>
+                        <option value="emergency">Emergency</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Reason (max 500 chars)</label><textarea id="reason" maxlength="500"></textarea></div>
+                <div class="form-group"><label>Leave Date</label><input type="date" id="leaveDate"></div>
+                <div class="form-group"><label>Leave Time</label><input type="time" id="leaveTime"></div>
+                <button class="btn btn-primary" onclick="submitRequest()">Submit Request</button>
+            </div>
+
+            <div class="card">
+                <h2>My Requests</h2>
+                <div id="myRequests"></div>
+            </div>
+        </div>
+
+        <div id="teacherDashboard" class="section">
+            <div class="card">
+                <h2>Teacher Dashboard <button class="logout-btn" onclick="logout()">Logout</button></h2>
+            </div>
+            <div class="card">
+                <h2>Pending Approvals</h2>
+                <div id="teacherRequests"></div>
+            </div>
+        </div>
+
+        <div id="hodDashboard" class="section">
+            <div class="card">
+                <h2>HOD Dashboard <button class="logout-btn" onclick="logout()">Logout</button></h2>
+            </div>
+            <div class="card">
+                <h2>Pending Approvals</h2>
+                <div id="hodRequests"></div>
+            </div>
+        </div>
+
+        <div id="parentDashboard" class="section">
+            <div class="card">
+                <h2>Parent Approval</h2>
+                <div id="parentRequest"></div>
+                <div class="form-group"><label>Comments</label><textarea id="parentComments"></textarea></div>
+                <div class="actions">
+                    <button class="btn btn-success" onclick="parentAction('approved')">Approve</button>
+                    <button class="btn btn-danger" onclick="parentAction('rejected')">Reject</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null, currentRole = null, requests = [], requestIdCounter = 1;
+        const users = {
+            students: [
+                { roll: 'L9', password: '8712209017', name: 'Student L9', parent: '7416016864' },
+                { roll: 'CS101', password: '1234567890', name: 'Rahul Kumar', parent: '9876543210' }
+            ],
+            teachers: [
+                { email: 'jahnavi@gmail.com', password: 'jahnavi123', name: 'Jahnavi' },
+                { email: 'teacher@school.com', password: 'teacher123', name: 'Prof. Singh' }
+            ],
+            hods: [
+                { email: 'kruthika@gmail.com', password: 'kruthika123', name: 'Kruthika' },
+                { email: 'hod@school.com', password: 'hod123', name: 'Dr. Verma' }
+            ]
+        };
+
+        function switchLogin(type) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('#loginSection .section').forEach(s => s.classList.remove('active'));
+            document.getElementById(type + 'Login').classList.add('active');
+        }
+
+        function login(role) {
+            if (role === 'student') {
+                const roll = document.getElementById('sRoll').value.trim().toUpperCase();
+                const pass = document.getElementById('sPass').value.trim();
+                const student = users.students.find(s => s.roll.toUpperCase() === roll && s.password === pass);
+                if (student) {
+                    currentUser = student; currentRole = 'student';
+                    showDashboard('studentDashboard');
+                    document.getElementById('studentName').textContent = student.name;
+                    loadStudentRequests();
+                } else alert('Invalid credentials');
+            } else if (role === 'teacher') {
+                const email = document.getElementById('tEmail').value.trim().toLowerCase();
+                const pass = document.getElementById('tPass').value.trim();
+                const teacher = users.teachers.find(t => t.email.toLowerCase() === email && t.password === pass);
+                if (teacher) {
+                    currentUser = teacher; currentRole = 'teacher';
+                    showDashboard('teacherDashboard');
+                    loadTeacherRequests();
+                } else alert('Invalid credentials');
+            } else if (role === 'hod') {
+                const email = document.getElementById('hEmail').value.trim().toLowerCase();
+                const pass = document.getElementById('hPass').value.trim();
+                const hod = users.hods.find(h => h.email.toLowerCase() === email && h.password === pass);
+                if (hod) {
+                    currentUser = hod; currentRole = 'hod';
+                    showDashboard('hodDashboard');
+                    loadHODRequests();
+                } else alert('Invalid credentials');
+            } else if (role === 'parent') {
+                const phone = document.getElementById('pPhone').value.trim();
+                const reqId = document.getElementById('pRequestId').value.trim();
+                const request = requests.find(r => r.id == reqId && r.parentPhone === phone);
+                if (request) {
+                    currentUser = { phone }; currentRole = 'parent';
+                    showDashboard('parentDashboard');
+                    loadParentRequest(request);
+                } else alert('Invalid request');
+            }
+        }
+
+        function showDashboard(id) {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById(id).classList.add('active');
+        }
+
+        function logout() {
+            currentUser = null; currentRole = null;
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById('loginSection').style.display = 'block';
+        }
+
+        function submitRequest() {
+            const type = document.getElementById('requestType').value;
+            const reason = document.getElementById('reason').value;
+            const date = document.getElementById('leaveDate').value;
+            const time = document.getElementById('leaveTime').value;
+            if (!reason || !date || !time) return alert('Fill all fields');
+            
+            const today = new Date().toISOString().split('T')[0];
+            if (date < today) return alert('Cannot apply for past dates');
+            
+            const existingToday = requests.find(r => r.studentRoll === currentUser.roll && r.submittedAt.split(',')[0] === new Date().toLocaleDateString());
+            if (existingToday) return alert('You have already submitted a request today. Only one request per day allowed.');
+            
+            const request = {
+                id: requestIdCounter++, studentName: currentUser.name, studentRoll: currentUser.roll,
+                parentPhone: currentUser.parent, type, reason, date, time,
+                status: 'PENDING_PARENT', parentStatus: null, teacherStatus: null, hodStatus: null,
+                submittedAt: new Date().toLocaleString(), expiresAt: `${date} ${time}`
+            };
+            requests.push(request);
+            alert(`Request submitted! SMS sent to parent.\nRequest ID: ${request.id}`);
+            document.getElementById('reason').value = '';
+            document.getElementById('leaveDate').value = '';
+            document.getElementById('leaveTime').value = '';
+            loadStudentRequests();
+        }
+
+        function loadStudentRequests() {
+            const myReqs = requests.filter(r => r.studentRoll === currentUser.roll);
+            const html = myReqs.length ? myReqs.map(r => `
+                <div class="request-item">
+                    <h3>Request #${r.id} - ${r.type.toUpperCase()}</h3>
+                    <p><strong>Reason:</strong> ${r.reason}</p>
+                    <p><strong>Leave:</strong> ${r.date} at ${r.time}</p>
+                    <p><strong>Status:</strong> <span class="status status-${r.status.split('_')[1]?.toLowerCase() || 'pending'}">${r.status}</span></p>
+                    <div style="display:flex;margin-top:10px;">
+                        <div class="flow-step ${r.parentStatus ? 'completed' : r.status === 'PENDING_PARENT' ? 'active' : ''}">Parent<br>${r.parentStatus || 'Pending'}</div>
+                        <div class="flow-step ${r.teacherStatus ? 'completed' : r.status === 'PENDING_TEACHER' ? 'active' : ''}">Teacher<br>${r.teacherStatus || 'Pending'}</div>
+                        <div class="flow-step ${r.hodStatus ? 'completed' : r.status === 'PENDING_HOD' ? 'active' : ''}">HOD<br>${r.hodStatus || 'Pending'}</div>
+                    </div>
+                </div>
+            `).join('') : '<p>No requests yet</p>';
+            document.getElementById('myRequests').innerHTML = html;
+        }
+
+        function loadTeacherRequests() {
+            const pending = requests.filter(r => r.status === 'PENDING_TEACHER');
+            const html = pending.length ? pending.map(r => `
+                <div class="request-item">
+                    <h3>${r.studentName} (${r.studentRoll}) - ${r.type.toUpperCase()}</h3>
+                    <p><strong>Reason:</strong> ${r.reason}</p>
+                    <p><strong>Leave:</strong> ${r.date} at ${r.time}</p>
+                    <p><strong>Parent:</strong> ✅ Approved</p>
+                    <div class="actions">
+                        <button class="btn btn-success" onclick="approveRequest(${r.id}, 'teacher', 'approved')">Approve</button>
+                        <button class="btn btn-danger" onclick="approveRequest(${r.id}, 'teacher', 'rejected')">Reject</button>
+                    </div>
+                </div>
+            `).join('') : '<p>No pending requests</p>';
+            document.getElementById('teacherRequests').innerHTML = html;
+        }
+
+        function loadHODRequests() {
+            const pending = requests.filter(r => r.status === 'PENDING_HOD');
+            const html = pending.length ? pending.map(r => `
+                <div class="request-item">
+                    <h3>${r.studentName} (${r.studentRoll}) - ${r.type.toUpperCase()}</h3>
+                    <p><strong>Reason:</strong> ${r.reason}</p>
+                    <p><strong>Leave:</strong> ${r.date} at ${r.time}</p>
+                    <p><strong>Expires:</strong> ${r.expiresAt}</p>
+                    <p>✅ Parent Approved | ✅ Teacher Approved</p>
+                    <div class="actions">
+                        <button class="btn btn-success" onclick="approveRequest(${r.id}, 'hod', 'approved')">Approve</button>
+                        <button class="btn btn-danger" onclick="approveRequest(${r.id}, 'hod', 'rejected')">Reject</button>
+                    </div>
+                </div>
+            `).join('') : '<p>No pending requests</p>';
+            document.getElementById('hodRequests').innerHTML = html;
+        }
+
+        function loadParentRequest(request) {
+            document.getElementById('parentRequest').innerHTML = `
+                <div class="request-item">
+                    <h3>Request from ${request.studentName}</h3>
+                    <p><strong>Roll:</strong> ${request.studentRoll}</p>
+                    <p><strong>Type:</strong> ${request.type.toUpperCase()}</p>
+                    <p><strong>Reason:</strong> ${request.reason}</p>
+                    <p><strong>Leave:</strong> ${request.date} at ${request.time}</p>
+                </div>
+            `;
+        }
+
+        function parentAction(action) {
+            const reqId = document.getElementById('pRequestId').value;
+            const request = requests.find(r => r.id == reqId);
+            if (request) {
+                request.parentStatus = action;
+                request.status = action === 'approved' ? 'PENDING_TEACHER' : 'REJECTED_BY_PARENT';
+                alert(`Request ${action}!`);
+                logout();
+            }
+        }
+
+        function approveRequest(id, role, action) {
+            const request = requests.find(r => r.id === id);
+            if (request) {
+                if (role === 'teacher') {
+                    request.teacherStatus = action;
+                    request.status = action === 'approved' ? 'PENDING_HOD' : 'REJECTED_BY_TEACHER';
+                    loadTeacherRequests();
+                } else if (role === 'hod') {
+                    request.hodStatus = action;
+                    request.status = action === 'approved' ? 'APPROVED' : 'REJECTED_BY_HOD';
+                    loadHODRequests();
+                }
+                alert(`Request ${action}!`);
+            }
+        }
+    </script>
+</body>
+</html>
