@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Approval - Gateway System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        .subtitle { color: #7f8c8d; margin-bottom: 30px; }
+        .request-details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #3498db;
+        }
+        .request-details p {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        .request-details strong {
+            color: #2c3e50;
+            display: inline-block;
+            min-width: 120px;
+        }
+        .actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-approve {
+            background: #27ae60;
+            color: white;
+        }
+        .btn-approve:hover {
+            background: #229954;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+        .btn-reject {
+            background: #e74c3c;
+            color: white;
+        }
+        .btn-reject:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #e74c3c;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #27ae60;
+            text-align: center;
+        }
+        .emergency {
+            border-left-color: #e74c3c !important;
+        }
+        .type-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .type-emergency {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .type-casual {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="content">
+            <div class="loading">
+                <h2>Loading request details...</h2>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let requestData = null;
+        let token = null;
+
+        // Get token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        token = urlParams.get('token');
+
+        if (!token) {
+            showError('Invalid approval link. No token provided.');
+        } else {
+            loadRequest();
+        }
+
+        async function loadRequest() {
+            try {
+                const response = await fetch(`${API_URL}/parent/request/${token}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || data.detail || 'Failed to load request');
+                }
+
+                requestData = data;
+                displayRequest(data);
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        function displayRequest(data) {
+            const typeClass = data.request_type === 'emergency' ? 'emergency' : '';
+            const typeBadge = data.request_type === 'emergency' ? 'type-emergency' : 'type-casual';
+
+            document.getElementById('content').innerHTML = `
+                <h1>🎓 Permission Request</h1>
+                <p class="subtitle">Review and approve/reject this request</p>
+
+                <div class="request-details ${typeClass}">
+                    <p><strong>Student:</strong> ${data.student_name}</p>
+                    <p><strong>Roll Number:</strong> ${data.student_roll}</p>
+                    <p><strong>Class:</strong> ${data.student_class}</p>
+                    <p>
+                        <strong>Request Type:</strong> 
+                        <span class="type-badge ${typeBadge}">${data.request_type.toUpperCase()}</span>
+                    </p>
+                    <p><strong>Leave Date:</strong> ${data.leave_date}</p>
+                    <p><strong>Leave Time:</strong> ${data.leave_time}</p>
+                    <p><strong>Reason:</strong> ${data.reason}</p>
+                    <p><strong>Submitted:</strong> ${new Date(data.submitted_at).toLocaleString()}</p>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-approve" onclick="handleAction('approve')">
+                        ✅ Approve Request
+                    </button>
+                    <button class="btn btn-reject" onclick="handleAction('reject')">
+                        ❌ Reject Request
+                    </button>
+                </div>
+            `;
+        }
+
+        async function handleAction(action) {
+            let reason = null;
+            
+            if (action === 'reject') {
+                reason = prompt('Please provide a reason for rejection (optional):');
+            }
+
+            if (action === 'reject' && reason === null) {
+                return; // User cancelled
+            }
+
+            try {
+                const endpoint = action === 'approve' ? 'approve' : 'reject';
+                const response = await fetch(`${API_URL}/parent/${endpoint}/${token}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || data.detail || 'Action failed');
+                }
+
+                showSuccess(action);
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('content').innerHTML = `
+                <div class="error">
+                    <h2>❌ Error</h2>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+
+        function showSuccess(action) {
+            const message = action === 'approve' 
+                ? 'Request approved successfully! The student and teacher have been notified.'
+                : 'Request rejected successfully. The student has been notified.';
+
+            document.getElementById('content').innerHTML = `
+                <div class="success">
+                    <h2>${action === 'approve' ? '✅' : '❌'} ${action === 'approve' ? 'Approved' : 'Rejected'}</h2>
+                    <p>${message}</p>
+                    <p style="margin-top: 20px; font-size: 14px; color: #6c757d;">
+                        You can close this page now.
+                    </p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
