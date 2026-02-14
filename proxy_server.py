@@ -73,7 +73,9 @@ class ProxyHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
 if __name__ == '__main__':
-    os.chdir('/Users/jahnavibandarupalli/gateway')
-    server = HTTPServer(('0.0.0.0', 8080), ProxyHandler)
-    print('✅ Proxy server running on http://0.0.0.0:8080')
+    import os
+    port = int(os.environ.get('PORT', 8080))
+    os.chdir('/Users/jahnavibandarupalli/gateway' if os.path.exists('/Users/jahnavibandarupalli/gateway') else '.')
+    server = HTTPServer(('0.0.0.0', port), ProxyHandler)
+    print(f'✅ Proxy server running on http://0.0.0.0:{port}')
     server.serve_forever()

@@ -37,3 +37,7 @@
 127.0.0.1 - - [14/Feb/2026 11:58:40] "GET /apple-touch-icon.png HTTP/1.1" 404 -
 127.0.0.1 - - [14/Feb/2026 11:58:40] code 404, message File not found
 127.0.0.1 - - [14/Feb/2026 11:58:40] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [14/Feb/2026 12:01:16] "GET / HTTP/1.1" 304 -
+127.0.0.1 - - [14/Feb/2026 12:01:22] "POST /api/auth/google HTTP/1.1" 200 -
+127.0.0.1 - - [14/Feb/2026 12:01:22] code 500, message HTTP Error 401: Unauthorized
+127.0.0.1 - - [14/Feb/2026 12:01:22] "GET /api/teacher/requests/pending HTTP/1.1" 500 -
