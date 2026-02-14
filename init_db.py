@@ -12,13 +12,14 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             role TEXT NOT NULL,
             email TEXT,
-            password_hash TEXT NOT NULL,
+            password_hash TEXT,
             phone_number TEXT,
             name TEXT NOT NULL,
             department TEXT,
             class TEXT,
             roll_number TEXT UNIQUE,
             parent_phone TEXT,
+            parent_email TEXT,
             parent_name TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )

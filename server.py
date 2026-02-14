@@ -10,6 +10,7 @@ import os
 import time
 import random
 import string
+import re
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from dotenv import load_dotenv
@@ -25,6 +26,7 @@ load_dotenv()
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 ALLOWED_EMAIL_DOMAIN = 'bvrithyderabad.edu.in'
+ENFORCE_DOMAIN_RESTRICTION = os.getenv('ENFORCE_DOMAIN_RESTRICTION', 'false').lower() == 'true'
 
 # Role mapping - HODs and Teachers by email
 HOD_EMAILS = ['25wh1a05l9@bvrithyderabad.edu.in']  # Temporary testing HOD
@@ -35,6 +37,11 @@ TEACHER_CLASSES = {
     'sundari.m@bvrithyderabad.edu.in': 'CS-B',
     '25wh1a05k1@bvrithyderabad.edu.in': 'CS-A'
 }
+
+def is_valid_email(email):
+    """Validate email format"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
 
 def get_user_role(email):
     """Determine user role based on email"""
@@ -58,6 +65,10 @@ app.add_middleware(
 
 JWT_SECRET = os.getenv('JWT_SECRET', 'your-secret-key-change-in-production')
 JWT_ALGORITHM = 'HS256'
+
+# Security check for production
+if JWT_SECRET == 'your-secret-key-change-in-production':
+    print('⚠️  WARNING: Using default JWT_SECRET. Set JWT_SECRET in .env for production!')
 
 def get_db():
     conn = sqlite3.connect('gateway.db')
@@ -111,13 +122,14 @@ def google_auth(req: GoogleAuthRequest):
         if not email:
             raise HTTPException(status_code=400, detail='Email not found in token')
         
-        # Domain restriction temporarily disabled for testing
-        # email_domain = email.split('@')[1] if '@' in email else ''
-        # if email_domain != ALLOWED_EMAIL_DOMAIN:
-        #     raise HTTPException(
-        #         status_code=403, 
-        #         detail=f'Access denied. Only @{ALLOWED_EMAIL_DOMAIN} emails are allowed.'
-        #     )
+        # Domain restriction (configurable)
+        if ENFORCE_DOMAIN_RESTRICTION:
+            email_domain = email.split('@')[1] if '@' in email else ''
+            if email_domain != ALLOWED_EMAIL_DOMAIN:
+                raise HTTPException(
+                    status_code=403, 
+                    detail=f'Access denied. Only @{ALLOWED_EMAIL_DOMAIN} emails are allowed.'
+                )
         
         # Determine role
         role = get_user_role(email)
@@ -145,7 +157,6 @@ def google_auth(req: GoogleAuthRequest):
             
             # Create new user for HOD/Teacher
             teacher_class = TEACHER_CLASSES.get(email, '') if role == 'teacher' else ''
-            # Use NULL for roll_number instead of empty string to avoid UNIQUE constraint issues
             c.execute('''
                 INSERT INTO users (role, email, name, department, class, roll_number, parent_phone, parent_email)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -185,19 +196,15 @@ def google_auth(req: GoogleAuthRequest):
             'token': token,
             'user': user_data
         }
+    except HTTPException:
+        raise
     except ValueError as e:
-        # More detailed error message for debugging
         error_msg = str(e)
-        print(f'❌ OAuth ValueError: {error_msg}')  # Log the error
-        if 'pattern' in error_msg.lower():
-            raise HTTPException(
-                status_code=401, 
-                detail='Invalid Google token format. Please try logging in again or contact support.'
-            )
-        raise HTTPException(status_code=401, detail=f'Token verification failed: {error_msg}')
+        print(f'❌ OAuth ValueError: {error_msg}')
+        raise HTTPException(status_code=401, detail=f'Invalid token: {error_msg}')
     except Exception as e:
-        print(f'❌ OAuth Exception: {type(e).__name__}: {str(e)}')  # Log the error
-        raise HTTPException(status_code=500, detail=f'Authentication error: {str(e)}')
+        print(f'❌ OAuth Exception: {type(e).__name__}: {str(e)}')
+        raise HTTPException(status_code=500, detail='Authentication failed. Please try again.')
 
 @app.post('/api/auth/login')
 def login(req: LoginRequest):
@@ -249,46 +256,72 @@ def submit_request(req: RequestSubmit, user = Depends(verify_token)):
     if user['role'] != 'student':
         raise HTTPException(status_code=403, detail='Access denied')
     
+    # Validate date and time
+    try:
+        leave_datetime = datetime.strptime(f"{req.date} {req.time}", "%Y-%m-%d %H:%M")
+        if leave_datetime <= datetime.now():
+            raise HTTPException(status_code=400, detail='Leave date and time must be in the future')
+    except ValueError:
+        raise HTTPException(status_code=400, detail='Invalid date or time format')
+    
     conn = get_db()
     c = conn.cursor()
     
-    # Check duplicate
-    c.execute('''
-        SELECT * FROM requests 
-        WHERE student_id = ? AND leave_date = ? AND status IN ('PENDING_PARENT', 'PENDING_TEACHER', 'PENDING_HOD')
-    ''', (user['id'], req.date))
-    
-    if c.fetchone():
+    # Check duplicate with transaction
+    c.execute('BEGIN IMMEDIATE')
+    try:
+        c.execute('''
+            SELECT * FROM requests 
+            WHERE student_id = ? AND leave_date = ? AND status IN ('PENDING_PARENT', 'PENDING_TEACHER', 'PENDING_HOD')
+        ''', (user['id'], req.date))
+        
+        if c.fetchone():
+            conn.rollback()
+            conn.close()
+            raise HTTPException(status_code=400, detail='You already have a pending request for this date')
+        
+        # Get student
+        c.execute('SELECT * FROM users WHERE id = ?', (user['id'],))
+        student = c.fetchone()
+        
+        if not student['parent_email']:
+            conn.rollback()
+            conn.close()
+            raise HTTPException(status_code=400, detail='Parent email not configured. Please contact admin.')
+        
+        # Validate parent email format
+        if not is_valid_email(student['parent_email']):
+            conn.rollback()
+            conn.close()
+            raise HTTPException(status_code=400, detail='Invalid parent email format. Please contact admin.')
+        
+        # Generate token
+        token = 'TOKEN_' + str(int(time.time())) + '_' + ''.join(random.choices(string.ascii_lowercase + string.digits, k=9))
+        token_expiry = (datetime.utcnow() + timedelta(hours=24)).isoformat()
+        request_id = 'REQ_' + str(int(time.time()))
+        
+        c.execute('''
+            INSERT INTO requests (
+                request_id, student_id, student_name, student_roll, student_class, student_department,
+                parent_phone, request_type, reason, leave_date, leave_time, expires_at,
+                status, parent_token, token_expiry
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            request_id, user['id'], student['name'], student['roll_number'], student['class'], student['department'],
+            student['parent_email'], req.type, req.reason, req.date, req.time, f"{req.date} {req.time}",
+            'PENDING_PARENT', token, token_expiry
+        ))
+        
+        conn.commit()
+        last_id = c.lastrowid
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
         conn.close()
-        raise HTTPException(status_code=400, detail='You already have a pending request for this date')
+        raise HTTPException(status_code=500, detail=f'Failed to submit request: {str(e)}')
     
-    # Get student
-    c.execute('SELECT * FROM users WHERE id = ?', (user['id'],))
-    student = c.fetchone()
-    
-    if not student['parent_email']:
-        conn.close()
-        raise HTTPException(status_code=400, detail='Parent email not configured. Please contact admin.')
-    
-    # Generate token
-    token = 'TOKEN_' + str(int(time.time())) + '_' + ''.join(random.choices(string.ascii_lowercase + string.digits, k=9))
-    token_expiry = (datetime.utcnow() + timedelta(hours=24)).isoformat()
-    request_id = 'REQ_' + str(int(time.time()))
-    
-    c.execute('''
-        INSERT INTO requests (
-            request_id, student_id, student_name, student_roll, student_class, student_department,
-            parent_phone, request_type, reason, leave_date, leave_time, expires_at,
-            status, parent_token, token_expiry
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (
-        request_id, user['id'], student['name'], student['roll_number'], student['class'], student['department'],
-        student['parent_email'], req.type, req.reason, req.date, req.time, f"{req.date} {req.time}",
-        'PENDING_PARENT', token, token_expiry
-    ))
-    
-    conn.commit()
-    last_id = c.lastrowid
     conn.close()
     
     # Send email to parent
@@ -361,8 +394,12 @@ def get_parent_request(token: str):
     if not request:
         raise HTTPException(status_code=404, detail='Invalid or expired token')
     
-    if datetime.fromisoformat(request['token_expiry']) < datetime.utcnow():
-        raise HTTPException(status_code=400, detail='This approval link has expired')
+    try:
+        token_expiry = datetime.fromisoformat(request['token_expiry'])
+        if token_expiry < datetime.utcnow():
+            raise HTTPException(status_code=400, detail='This approval link has expired')
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail='Invalid token expiry format')
     
     if request['token_used']:
         raise HTTPException(status_code=400, detail='This approval link has already been used')
@@ -380,9 +417,14 @@ def approve_parent(token: str):
         conn.close()
         raise HTTPException(status_code=404, detail='Invalid token')
     
-    if datetime.fromisoformat(request['token_expiry']) < datetime.utcnow():
+    try:
+        token_expiry = datetime.fromisoformat(request['token_expiry'])
+        if token_expiry < datetime.utcnow():
+            conn.close()
+            raise HTTPException(status_code=400, detail='Token expired')
+    except (ValueError, TypeError):
         conn.close()
-        raise HTTPException(status_code=400, detail='Token expired')
+        raise HTTPException(status_code=400, detail='Invalid token expiry format')
     
     if request['token_used']:
         conn.close()
@@ -409,9 +451,14 @@ def reject_parent(token: str, req: RejectRequest):
         conn.close()
         raise HTTPException(status_code=404, detail='Invalid token')
     
-    if datetime.fromisoformat(request['token_expiry']) < datetime.utcnow():
+    try:
+        token_expiry = datetime.fromisoformat(request['token_expiry'])
+        if token_expiry < datetime.utcnow():
+            conn.close()
+            raise HTTPException(status_code=400, detail='Token expired')
+    except (ValueError, TypeError):
         conn.close()
-        raise HTTPException(status_code=400, detail='Token expired')
+        raise HTTPException(status_code=400, detail='Invalid token expiry format')
     
     if request['token_used']:
         conn.close()
@@ -503,7 +550,18 @@ def reject_teacher(id: int, req: RejectRequest, user = Depends(verify_token)):
         WHERE id = ?
     ''', (req.reason, id))
     conn.commit()
+    
+    # Get student and parent emails
+    c.execute('SELECT u.email, u.parent_email, r.student_name FROM requests r JOIN users u ON r.student_id = u.id WHERE r.id = ?', (id,))
+    data = c.fetchone()
     conn.close()
+    
+    # Send rejection notification to student and parent
+    if data:
+        if data['email']:
+            send_rejection_notification_email(data['email'], data['student_name'], 'Teacher', req.reason)
+        if data['parent_email'] and is_valid_email(data['parent_email']):
+            send_rejection_notification_email(data['parent_email'], data['student_name'], 'Teacher', req.reason)
     
     return {'message': 'Request rejected successfully'}
 
@@ -585,7 +643,18 @@ def reject_hod(id: int, req: RejectRequest, user = Depends(verify_token)):
         WHERE id = ?
     ''', (req.reason, id))
     conn.commit()
+    
+    # Get student and parent emails
+    c.execute('SELECT u.email, u.parent_email, r.student_name FROM requests r JOIN users u ON r.student_id = u.id WHERE r.id = ?', (id,))
+    data = c.fetchone()
     conn.close()
+    
+    # Send rejection notification to student and parent
+    if data:
+        if data['email']:
+            send_rejection_notification_email(data['email'], data['student_name'], 'HOD', req.reason)
+        if data['parent_email'] and is_valid_email(data['parent_email']):
+            send_rejection_notification_email(data['parent_email'], data['student_name'], 'HOD', req.reason)
     
     return {'message': 'Request rejected successfully'}
 
