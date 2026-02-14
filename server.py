@@ -27,6 +27,12 @@ ALLOWED_EMAIL_DOMAIN = 'bvrithyderabad.edu.in'
 HOD_EMAILS = ['25wh1a05l9@bvrithyderabad.edu.in']  # Temporary testing HOD
 TEACHER_EMAILS = ['sundari.m@bvrithyderabad.edu.in', '25wh1a05k1@bvrithyderabad.edu.in']
 
+# Teacher class assignments
+TEACHER_CLASSES = {
+    'sundari.m@bvrithyderabad.edu.in': 'CS-B',
+    '25wh1a05k1@bvrithyderabad.edu.in': 'CS-A'
+}
+
 def get_user_role(email):
     """Determine user role based on email"""
     email_lower = email.lower().strip()
@@ -131,14 +137,15 @@ def google_auth(req: GoogleAuthRequest):
                 )
             
             # Create new user for HOD/Teacher
+            teacher_class = TEACHER_CLASSES.get(email, '') if role == 'teacher' else ''
             c.execute('''
                 INSERT INTO users (role, email, name, department, class, roll_number, parent_phone, parent_email)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (role, email, name, 'CSE', '', '', '', ''))
+            ''', (role, email, name, 'CSE', teacher_class, '', '', ''))
             conn.commit()
             user_id = c.lastrowid
             user_name = name
-            user_class = ''
+            user_class = teacher_class
             user_dept = 'CSE'
             user_roll = ''
         
