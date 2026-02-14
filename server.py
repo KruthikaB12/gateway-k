@@ -24,8 +24,8 @@ GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 ALLOWED_EMAIL_DOMAIN = 'bvrithyderabad.edu.in'
 
 # Role mapping - HODs and Teachers by email
-HOD_EMAILS = ['hod@bvrithyderabad.edu.in']  # Update with actual HOD email
-TEACHER_EMAILS = ['sundari.m@bvrithyderabad.edu.in']
+HOD_EMAILS = ['25wh1a05l9@bvrithyderabad.edu.in']  # Temporary testing HOD
+TEACHER_EMAILS = ['sundari.m@bvrithyderabad.edu.in', '25wh1a05k1@bvrithyderabad.edu.in']
 
 def get_user_role(email):
     """Determine user role based on email"""
