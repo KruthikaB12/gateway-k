@@ -117,16 +117,30 @@ def google_auth(req: GoogleAuthRequest):
         
         if existing_user:
             user_id = existing_user['id']
+            user_name = existing_user['name']
+            user_class = existing_user['class']
+            user_dept = existing_user['department']
+            user_roll = existing_user['roll_number']
         else:
-            # Create new user in database
-            # Note: parent_phone column in requests table actually stores parent_email
-            parent_email = f"parent.{email.split('@')[0]}@gmail.com"  # Generate parent email
+            # Only allow HOD and Teachers to auto-register
+            if role == 'student':
+                conn.close()
+                raise HTTPException(
+                    status_code=403, 
+                    detail='Student not registered. Please contact admin to add your details.'
+                )
+            
+            # Create new user for HOD/Teacher
             c.execute('''
                 INSERT INTO users (role, email, name, department, class, roll_number, parent_phone, parent_email)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (role, email, name, 'CSE', 'CS-A' if role == 'student' else '', '', '0000000000', parent_email))
+            ''', (role, email, name, 'CSE', '', '', '', ''))
             conn.commit()
             user_id = c.lastrowid
+            user_name = name
+            user_class = ''
+            user_dept = 'CSE'
+            user_roll = ''
         
         conn.close()
         
@@ -135,10 +149,10 @@ def google_auth(req: GoogleAuthRequest):
             'id': user_id,
             'email': email,
             'role': role,
-            'name': name,
-            'class': 'CS-A' if role == 'student' else '',
-            'department': 'CSE',
-            'roll_number': ''
+            'name': user_name,
+            'class': user_class,
+            'department': user_dept,
+            'roll_number': user_roll
         }
         
         # Generate JWT token
