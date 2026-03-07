@@ -26,7 +26,7 @@ Click **"Environment"** tab and add these:
 
 ```
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-GOOGLE_CLIENT_ID=896563148898-u92eg641v7h3dqm9up4a31n5367fu1il.apps.googleusercontent.com
+GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
 SMTP_EMAIL=watermelon37453@gmail.com

@@ -40,12 +40,12 @@ Make sure these APIs are enabled:
 
 Verify your `.env` file has the correct Client ID:
 ```bash
-GOOGLE_CLIENT_ID=896563148898-u92eg641v7h3dqm9up4a31n5367fu1il.apps.googleusercontent.com
+GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
 ```
 
 And it matches the one in `front_gate.html`:
 ```html
-data-client_id="896563148898-u92eg641v7h3dqm9up4a31n5367fu1il.apps.googleusercontent.com"
+data-client_id="YOUR_GOOGLE_CLIENT_ID"
 ```
 
 ### 3. Domain Restrictions

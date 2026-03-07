@@ -14,7 +14,7 @@
 - [x] init_db.py - Database initialization script
 
 ## ✅ Environment Variables (Set in Render Dashboard)
-- [x] GOOGLE_CLIENT_ID: 896563148898-u92eg641v7h3dqm9up4a31n5367fu1il.apps.googleusercontent.com
+- [x] GOOGLE_CLIENT_ID: YOUR_GOOGLE_CLIENT_ID
 - [x] SMTP_EMAIL: watermelon37453@gmail.com
 - [x] SMTP_SERVER: smtp.gmail.com
 - [x] SMTP_PORT: 587

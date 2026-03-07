@@ -20,8 +20,8 @@
 ### Step 3: Add Environment Variables
 Click "Environment" and add:
 ```
-GOOGLE_CLIENT_ID=896563148898-u92eg641v7h3dqm9up4a31n5367fu1il.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
+GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
 JWT_SECRET=your-secret-key-change-in-production
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
