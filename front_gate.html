@@ -296,12 +296,12 @@
             }
             
             try {
-                const data = await apiCall('/student/request', 'POST', { type, reason, date, time });
-                alert(`Request submitted successfully!\n\nAn email has been sent to your parent for approval.\n\nRequest ID: ${data.requestId}`);
+                await apiCall('/student/request', 'POST', { type, reason, date, time });
                 document.getElementById('reason').value = '';
                 document.getElementById('leaveDate').value = '';
                 document.getElementById('leaveTime').value = '';
-                loadStudentRequests();
+                await loadStudentRequests();
+                alert('Request submitted successfully!\n\nAn email has been sent to your parent for approval.');
             } catch (error) {
                 alert(error.message);
             }
@@ -360,12 +360,12 @@
                                 r.teacher_status === 'approved' || r.teacher_status === 'auto_approved' ? 'completed' : 
                                 r.teacher_status === 'rejected' ? 'rejected' :
                                 r.status === 'PENDING_TEACHER' ? 'active' : ''
-                            }">Teacher<br>${r.teacher_status === 'approved' ? '✅ Approved' : r.teacher_status === 'auto_approved' ? '✅ Auto' : r.teacher_status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}</div>
+                            }">Teacher<br>${r.teacher_status === 'approved' ? '✅ Approved' : r.teacher_status === 'auto_approved' ? '🔔 Notified' : r.teacher_status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}</div>
                             <div class="flow-step ${
                                 r.hod_status === 'approved' || r.hod_status === 'auto_approved' ? 'completed' : 
                                 r.hod_status === 'rejected' ? 'rejected' :
                                 r.status === 'PENDING_HOD' ? 'active' : ''
-                            }">HOD<br>${r.hod_status === 'approved' ? '✅ Approved' : r.hod_status === 'auto_approved' ? '✅ Auto' : r.hod_status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}</div>
+                            }">HOD<br>${r.hod_status === 'approved' ? '✅ Approved' : r.hod_status === 'auto_approved' ? '🔔 Notified' : r.hod_status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}</div>
                         </div>
                         ${canCancel ? `<button class="btn btn-danger" style="margin-top:10px;" onclick="cancelRequest(${r.id})">Cancel Request</button>` : ''}
                     </div>
