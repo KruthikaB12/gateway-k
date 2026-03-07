@@ -3,8 +3,8 @@
 
 echo "🚀 Starting Gateway Application..."
 
-# Initialize database
-python3 init_db.py
+# Initialize database (works with both SQLite and PostgreSQL)
+python3 init_db_postgres.py
 
 # Start backend and proxy server
 python3 server.py &

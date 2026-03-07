@@ -1,0 +1,13 @@
+127.0.0.1 - - [07/Mar/2026 18:06:19] "GET /front_gate.html HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2026 18:07:00] "GET /front_gate.html HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2026 18:07:01] code 404, message File not found
+127.0.0.1 - - [07/Mar/2026 18:07:01] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [07/Mar/2026 18:07:01] code 404, message File not found
+127.0.0.1 - - [07/Mar/2026 18:07:01] "GET /apple-touch-icon-precomposed.png HTTP/1.1" 404 -
+127.0.0.1 - - [07/Mar/2026 18:07:01] code 404, message File not found
+127.0.0.1 - - [07/Mar/2026 18:07:01] "GET /apple-touch-icon.png HTTP/1.1" 404 -
+127.0.0.1 - - [07/Mar/2026 18:07:01] code 404, message File not found
+127.0.0.1 - - [07/Mar/2026 18:07:01] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [07/Mar/2026 18:08:40] "GET /parent-approve.html?token=TOKEN_1772887081_eqkhn2kya HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2026 18:12:52] "GET /front_gate.html HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2026 18:17:20] "GET /front_gate.html HTTP/1.1" 200 -

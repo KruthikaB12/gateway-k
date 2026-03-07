@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import sqlite3
 import bcrypt
 import jwt
 from datetime import datetime, timedelta
@@ -14,6 +13,7 @@ import re
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from dotenv import load_dotenv
+from db_connection import get_db
 from email_service import (
     send_parent_approval_email,
     send_approval_notification_email,
@@ -69,11 +69,6 @@ JWT_ALGORITHM = 'HS256'
 # Security check for production
 if JWT_SECRET == 'your-secret-key-change-in-production':
     print('⚠️  WARNING: Using default JWT_SECRET. Set JWT_SECRET in .env for production!')
-
-def get_db():
-    conn = sqlite3.connect('gateway.db')
-    conn.row_factory = sqlite3.Row
-    return conn
 
 def verify_token(authorization: str = Header(None)):
     if not authorization or not authorization.startswith('Bearer '):
