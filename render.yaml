@@ -1,0 +1,26 @@
+# render.yaml - Render Blueprint
+services:
+  - type: web
+    name: gateway-app
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start_server.sh
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        value: 896563148898-u92eg641v7h3dqm9up4a31n5367fu1il.apps.googleusercontent.com
+      - key: SMTP_SERVER
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_EMAIL
+        value: watermelon37453@gmail.com
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: COLLEGE_NAME
+        value: BVRIT Hyderabad
+      - key: COLLEGE_EMAIL
+        value: watermelon37453@gmail.com
+      - key: ENFORCE_DOMAIN_RESTRICTION
+        value: false

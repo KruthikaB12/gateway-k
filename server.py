@@ -430,15 +430,40 @@ def approve_parent(token: str):
         conn.close()
         raise HTTPException(status_code=400, detail='Token already used')
     
-    c.execute('''
-        UPDATE requests 
-        SET status = 'PENDING_TEACHER', parent_status = 'approved', token_used = 1, parent_approved_at = CURRENT_TIMESTAMP
-        WHERE parent_token = ?
-    ''', (token,))
-    conn.commit()
-    conn.close()
-    
-    return {'message': 'Request approved successfully'}
+    # Emergency requests auto-approve, casual requests go to teacher
+    if request['request_type'].lower() == 'emergency':
+        c.execute('''
+            UPDATE requests 
+            SET status = 'APPROVED', parent_status = 'approved', token_used = 1, 
+                parent_approved_at = CURRENT_TIMESTAMP,
+                teacher_status = 'auto_approved', teacher_approved_at = CURRENT_TIMESTAMP,
+                hod_status = 'auto_approved', hod_approved_at = CURRENT_TIMESTAMP
+            WHERE parent_token = ?
+        ''', (token,))
+        conn.commit()
+        
+        # Send approval notification
+        c.execute('SELECT u.email, u.parent_email, r.student_name, r.leave_date, r.leave_time FROM requests r JOIN users u ON r.student_id = u.id WHERE r.parent_token = ?', (token,))
+        data = c.fetchone()
+        conn.close()
+        
+        if data:
+            if data['email']:
+                send_approval_notification_email(data['email'], data['student_name'], data['leave_date'], data['leave_time'])
+            if data['parent_email']:
+                send_approval_notification_email(data['parent_email'], data['student_name'], data['leave_date'], data['leave_time'])
+        
+        return {'message': 'Emergency request approved successfully (auto-approved)'}
+    else:
+        c.execute('''
+            UPDATE requests 
+            SET status = 'PENDING_TEACHER', parent_status = 'approved', token_used = 1, parent_approved_at = CURRENT_TIMESTAMP
+            WHERE parent_token = ?
+        ''', (token,))
+        conn.commit()
+        conn.close()
+        
+        return {'message': 'Request approved successfully'}
 
 @app.post('/api/parent/reject/{token}')
 def reject_parent(token: str, req: RejectRequest):
@@ -492,10 +517,14 @@ def get_teacher_requests(user = Depends(verify_token)):
     
     conn = get_db()
     c = conn.cursor()
+    # Show pending casual requests + approved emergency requests for visibility
     c.execute('''
         SELECT * FROM requests 
-        WHERE status = 'PENDING_TEACHER' AND student_class = ?
-        ORDER BY submitted_at ASC
+        WHERE student_class = ? AND (
+            status = 'PENDING_TEACHER' OR 
+            (status = 'APPROVED' AND request_type = 'Emergency')
+        )
+        ORDER BY submitted_at DESC
     ''', (user['class'],))
     requests = [dict(row) for row in c.fetchall()]
     conn.close()
@@ -573,10 +602,14 @@ def get_hod_requests(user = Depends(verify_token)):
     
     conn = get_db()
     c = conn.cursor()
+    # Show pending casual requests + approved emergency requests for visibility
     c.execute('''
         SELECT * FROM requests 
-        WHERE status = 'PENDING_HOD' AND student_department = ?
-        ORDER BY submitted_at ASC
+        WHERE student_department = ? AND (
+            status = 'PENDING_HOD' OR 
+            (status = 'APPROVED' AND request_type = 'Emergency')
+        )
+        ORDER BY submitted_at DESC
     ''', (user['department'],))
     requests = [dict(row) for row in c.fetchall()]
     conn.close()

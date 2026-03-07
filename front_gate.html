@@ -357,15 +357,15 @@
                                 r.status === 'PENDING_PARENT' ? 'active' : ''
                             }">Parent<br>${r.parent_status === 'approved' ? '✅ Approved' : r.parent_status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}</div>
                             <div class="flow-step ${
-                                r.teacher_status === 'approved' ? 'completed' : 
+                                r.teacher_status === 'approved' || r.teacher_status === 'auto_approved' ? 'completed' : 
                                 r.teacher_status === 'rejected' ? 'rejected' :
                                 r.status === 'PENDING_TEACHER' ? 'active' : ''
-                            }">Teacher<br>${r.teacher_status === 'approved' ? '✅ Approved' : r.teacher_status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}</div>
+                            }">Teacher<br>${r.teacher_status === 'approved' ? '✅ Approved' : r.teacher_status === 'auto_approved' ? '✅ Auto' : r.teacher_status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}</div>
                             <div class="flow-step ${
-                                r.hod_status === 'approved' ? 'completed' : 
+                                r.hod_status === 'approved' || r.hod_status === 'auto_approved' ? 'completed' : 
                                 r.hod_status === 'rejected' ? 'rejected' :
                                 r.status === 'PENDING_HOD' ? 'active' : ''
-                            }">HOD<br>${r.hod_status === 'approved' ? '✅ Approved' : r.hod_status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}</div>
+                            }">HOD<br>${r.hod_status === 'approved' ? '✅ Approved' : r.hod_status === 'auto_approved' ? '✅ Auto' : r.hod_status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}</div>
                         </div>
                         ${canCancel ? `<button class="btn btn-danger" style="margin-top:10px;" onclick="cancelRequest(${r.id})">Cancel Request</button>` : ''}
                     </div>
@@ -397,20 +397,24 @@
         async function loadTeacherRequests() {
             try {
                 const pending = await apiCall('/teacher/requests/pending');
-                const html = pending.length ? pending.map(r => `
-                    <div class="request-item ${r.request_type}">
-                        <h3>${r.student_name} (${r.student_roll}) - <span style="color: ${r.request_type === 'emergency' ? '#e74c3c' : '#3498db'}">${r.request_type.toUpperCase()}</span></h3>
+                const html = pending.length ? pending.map(r => {
+                    const isEmergencyApproved = r.request_type.toLowerCase() === 'emergency' && r.status === 'APPROVED';
+                    return `
+                    <div class="request-item ${r.request_type}" style="${isEmergencyApproved ? 'border: 2px solid #27ae60; background: #d4edda;' : ''}">
+                        <h3>${r.student_name} (${r.student_roll}) - <span style="color: ${r.request_type === 'emergency' ? '#e74c3c' : '#3498db'}">${r.request_type.toUpperCase()}</span>
+                        ${isEmergencyApproved ? '<span style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px;">AUTO-APPROVED</span>' : ''}</h3>
                         <p><strong>Class:</strong> ${r.student_class}</p>
                         <p><strong>Reason:</strong> ${r.reason}</p>
                         <p><strong>Leave:</strong> ${r.leave_date} at ${r.leave_time}</p>
                         <p><strong>Submitted:</strong> ${r.submitted_at}</p>
                         <p><strong>Parent:</strong> ✅ Approved at ${r.parent_approved_at || 'N/A'}</p>
-                        <div class="actions">
+                        ${isEmergencyApproved ? '<p style="color: #27ae60; font-weight: bold;">✅ This emergency request was auto-approved after parent approval (view only)</p>' : ''}
+                        ${!isEmergencyApproved ? `<div class="actions">
                             <button class="btn btn-success" onclick="approveRequest(${r.id}, 'teacher', 'approved')">Approve</button>
                             <button class="btn btn-danger" onclick="approveRequest(${r.id}, 'teacher', 'rejected')">Reject</button>
-                        </div>
+                        </div>` : ''}
                     </div>
-                `).join('') : '<p>No pending requests for your class</p>';
+                `}).join('') : '<p>No pending requests for your class</p>';
                 document.getElementById('teacherRequests').innerHTML = html;
             } catch (error) {
                 alert(error.message);
@@ -420,21 +424,25 @@
         async function loadHODRequests() {
             try {
                 const pending = await apiCall('/hod/requests/pending');
-                const html = pending.length ? pending.map(r => `
-                    <div class="request-item ${r.request_type}">
-                        <h3>${r.student_name} (${r.student_roll}) - <span style="color: ${r.request_type === 'emergency' ? '#e74c3c' : '#3498db'}">${r.request_type.toUpperCase()}</span></h3>
+                const html = pending.length ? pending.map(r => {
+                    const isEmergencyApproved = r.request_type.toLowerCase() === 'emergency' && r.status === 'APPROVED';
+                    return `
+                    <div class="request-item ${r.request_type}" style="${isEmergencyApproved ? 'border: 2px solid #27ae60; background: #d4edda;' : ''}">
+                        <h3>${r.student_name} (${r.student_roll}) - <span style="color: ${r.request_type === 'emergency' ? '#e74c3c' : '#3498db'}">${r.request_type.toUpperCase()}</span>
+                        ${isEmergencyApproved ? '<span style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px;">AUTO-APPROVED</span>' : ''}</h3>
                         <p><strong>Class:</strong> ${r.student_class} | <strong>Department:</strong> ${r.student_department}</p>
                         <p><strong>Reason:</strong> ${r.reason}</p>
                         <p><strong>Leave:</strong> ${r.leave_date} at ${r.leave_time}</p>
                         <p><strong>Expires:</strong> ${r.expires_at}</p>
                         <p><strong>Submitted:</strong> ${r.submitted_at}</p>
                         <p>✅ Parent Approved: ${r.parent_approved_at || 'N/A'} | ✅ Teacher Approved: ${r.teacher_approved_at || 'N/A'}</p>
-                        <div class="actions">
+                        ${isEmergencyApproved ? '<p style="color: #27ae60; font-weight: bold;">✅ This emergency request was auto-approved after parent approval (view only)</p>' : ''}
+                        ${!isEmergencyApproved ? `<div class="actions">
                             <button class="btn btn-success" onclick="approveRequest(${r.id}, 'hod', 'approved')">Approve</button>
                             <button class="btn btn-danger" onclick="approveRequest(${r.id}, 'hod', 'rejected')">Reject</button>
-                        </div>
+                        </div>` : ''}
                     </div>
-                `).join('') : '<p>No pending requests for your department</p>';
+                `}).join('') : '<p>No pending requests for your department</p>';
                 document.getElementById('hodRequests').innerHTML = html;
             } catch (error) {
                 alert(error.message);
