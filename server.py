@@ -97,6 +97,38 @@ class RequestSubmit(BaseModel):
 class RejectRequest(BaseModel):
     reason: Optional[str] = None
 
+# ADMIN - Import students (temporary endpoint)
+@app.post('/api/admin/import-students')
+def import_students():
+    """Import initial students - remove after use"""
+    students = [
+        ('student', '25wh1a05d1@bvrithyderabad.edu.in', 'NAGA JAHNAVI BANDARUPALLI', 'CSE', 'CS-A', '25WH1A05D1', '0000000000', 'watermelon37453@gmail.com'),
+        ('student', 'student2@bvrithyderabad.edu.in', 'Sample Student 2', 'CSE', 'CS-A', '25WH1A05D2', '0000000000', 'parent2@gmail.com'),
+        ('student', 'student3@bvrithyderabad.edu.in', 'Sample Student 3', 'CSE', 'CS-B', '25WH1A05D3', '0000000000', 'parent3@gmail.com'),
+        ('teacher', '25wh1a05k1@bvrithyderabad.edu.in', 'KODURI KRITHI', 'CSE', 'CS-A', None, None, None),
+        ('hod', '25wh1a05l9@bvrithyderabad.edu.in', 'BHAKTI BALU TAKEY', 'CSE', '', None, None, None),
+        ('student', '25wh1a05g5@bvrithyderabad.edu.in', 'Student G5', 'CSE', 'CS-A', '25WH1A05G5', '0000000000', 'kruthikab21@gmail.com'),
+    ]
+    
+    conn = get_db()
+    c = conn.cursor()
+    imported = 0
+    
+    for student in students:
+        try:
+            c.execute('''
+                INSERT INTO users (role, email, name, department, class, roll_number, parent_phone, parent_email)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', student)
+            imported += 1
+        except:
+            pass  # Skip if already exists
+    
+    conn.commit()
+    conn.close()
+    
+    return {'message': f'Imported {imported} users'}
+
 # AUTH
 @app.post('/api/auth/google')
 def google_auth(req: GoogleAuthRequest):
