@@ -354,17 +354,16 @@ def submit_request(req: RequestSubmit, user = Depends(verify_token)):
     conn = get_db()
     c = conn.cursor()
     
-    # Check duplicate with transaction
-    c.execute('BEGIN IMMEDIATE')
     try:
+        # Check duplicate with transaction
+        c.execute('BEGIN IMMEDIATE')
+        
         c.execute('''
             SELECT * FROM requests 
             WHERE student_id = ? AND leave_date = ? AND status IN ('PENDING_PARENT', 'PENDING_TEACHER', 'PENDING_HOD')
         ''', (user['id'], req.date))
         
         if c.fetchone():
-            conn.rollback()
-            conn.close()
             raise HTTPException(status_code=400, detail='You already have a pending request for this date')
         
         # Get student
@@ -372,22 +371,16 @@ def submit_request(req: RequestSubmit, user = Depends(verify_token)):
         student_row = c.fetchone()
         
         if not student_row:
-            conn.rollback()
-            conn.close()
             raise HTTPException(status_code=400, detail='Student record not found')
         
         # Convert Row to dict
         student = dict(student_row)
         
         if not student.get('parent_email'):
-            conn.rollback()
-            conn.close()
             raise HTTPException(status_code=400, detail='Parent email not configured. Please contact admin.')
         
         # Validate parent email format
         if not is_valid_email(student['parent_email']):
-            conn.rollback()
-            conn.close()
             raise HTTPException(status_code=400, detail='Invalid parent email format. Please contact admin.')
         
         # Generate token
@@ -410,7 +403,7 @@ def submit_request(req: RequestSubmit, user = Depends(verify_token)):
         conn.commit()
         last_id = c.lastrowid
         
-        # Send email to parent (before closing connection)
+        # Send email to parent
         try:
             send_parent_approval_email(
                 student['parent_email'],
@@ -422,10 +415,7 @@ def submit_request(req: RequestSubmit, user = Depends(verify_token)):
                 token
             )
         except Exception as email_error:
-            # Email failed but request is saved
             print(f"Email sending failed: {email_error}")
-        
-        conn.close()
         
         return {
             'message': 'Request submitted successfully',
@@ -435,13 +425,16 @@ def submit_request(req: RequestSubmit, user = Depends(verify_token)):
         }
         
     except HTTPException:
-        conn.rollback()
-        conn.close()
+        if conn:
+            conn.rollback()
         raise
     except Exception as e:
-        conn.rollback()
-        conn.close()
+        if conn:
+            conn.rollback()
         raise HTTPException(status_code=500, detail=f'Failed to submit request: {str(e)}')
+    finally:
+        if conn:
+            conn.close()
 
 @app.get('/api/student/requests')
 def get_student_requests(user = Depends(verify_token)):
