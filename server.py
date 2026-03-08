@@ -118,10 +118,9 @@ class RejectRequest(BaseModel):
 def import_students():
     """Import initial students - remove after use"""
     students = [
-        ('student', '25wh1a05d1@bvrithyderabad.edu.in', 'NAGA JAHNAVI BANDARUPALLI', 'CSE', 'CS-A', '25WH1A05D1', '0000000000', 'watermelon37453@gmail.com'),
+        ('teacher', '25wh1a05d1@bvrithyderabad.edu.in', 'NAGA JAHNAVI BANDARUPALLI', 'CSE', 'CS-A', None, None, None),
         ('student', 'student2@bvrithyderabad.edu.in', 'Sample Student 2', 'CSE', 'CS-A', '25WH1A05D2', '0000000000', 'parent2@gmail.com'),
         ('student', 'student3@bvrithyderabad.edu.in', 'Sample Student 3', 'CSE', 'CS-B', '25WH1A05D3', '0000000000', 'parent3@gmail.com'),
-        ('teacher', '25wh1a05k1@bvrithyderabad.edu.in', 'KODURI KRITHI', 'CSE', 'CS-A', None, None, None),
         ('hod', '25wh1a05l9@bvrithyderabad.edu.in', 'BHAKTI BALU TAKEY', 'CSE', '', None, None, None),
         ('student', '25wh1a05g5@bvrithyderabad.edu.in', 'Student G5', 'CSE', 'CS-A', '25WH1A05G5', '0000000000', 'kruthikab21@gmail.com'),
     ]
@@ -144,6 +143,23 @@ def import_students():
     conn.close()
     
     return {'message': f'Imported {imported} users'}
+
+@app.post('/api/admin/update-user-role')
+def update_user_role():
+    """Update user role and delete specific user"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Delete old teacher
+    c.execute("DELETE FROM users WHERE email = ?", ('25wh1a05k1@bvrithyderabad.edu.in',))
+    
+    # Update role for 25wh1a05d1
+    c.execute("UPDATE users SET role = 'teacher', roll_number = NULL, parent_phone = NULL, parent_email = NULL WHERE email = ?", 
+              ('25wh1a05d1@bvrithyderabad.edu.in',))
+    
+    conn.commit()
+    conn.close()
+    return {'message': 'User roles updated'}
 
 # AUTH
 @app.post('/api/auth/google')
