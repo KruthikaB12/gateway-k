@@ -144,6 +144,16 @@ def import_students():
     
     return {'message': f'Imported {imported} users'}
 
+@app.get('/api/admin/list-users')
+def list_users():
+    """List all users for debugging"""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT id, email, name, role FROM users')
+    users = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return {'users': users}
+
 @app.post('/api/admin/update-user-role')
 def update_user_role():
     """Update user role and delete specific user"""
