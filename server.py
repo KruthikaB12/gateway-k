@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 import bcrypt
@@ -29,13 +31,14 @@ ALLOWED_EMAIL_DOMAIN = 'bvrithyderabad.edu.in'
 ENFORCE_DOMAIN_RESTRICTION = os.getenv('ENFORCE_DOMAIN_RESTRICTION', 'false').lower() == 'true'
 
 # Role mapping - HODs and Teachers by email
-HOD_EMAILS = ['25wh1a05l9@bvrithyderabad.edu.in']  # Temporary testing HOD
-TEACHER_EMAILS = ['sundari.m@bvrithyderabad.edu.in', '25wh1a05k1@bvrithyderabad.edu.in']
+HOD_EMAILS = ['25wh1a05l9@bvrithyderabad.edu.in']
+TEACHER_EMAILS = ['sundari.m@bvrithyderabad.edu.in', '25wh1a05k1@bvrithyderabad.edu.in', '25wh1a05d1@bvrithyderabad.edu.in']
 
 # Teacher class assignments
 TEACHER_CLASSES = {
     'sundari.m@bvrithyderabad.edu.in': 'CS-B',
-    '25wh1a05k1@bvrithyderabad.edu.in': 'CS-A'
+    '25wh1a05k1@bvrithyderabad.edu.in': 'CS-A',
+    '25wh1a05d1@bvrithyderabad.edu.in': 'CS-A'
 }
 
 def is_valid_email(email):
@@ -62,6 +65,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve static HTML files
+@app.get("/")
+def read_root():
+    return FileResponse("front_gate.html")
+
+@app.get("/front_gate.html")
+def read_front_gate():
+    return FileResponse("front_gate.html")
+
+@app.get("/parent-approve.html")
+def read_parent_approve():
+    return FileResponse("parent-approve.html")
 
 JWT_SECRET = os.getenv('JWT_SECRET', 'your-secret-key-change-in-production')
 JWT_ALGORITHM = 'HS256'
@@ -134,16 +150,37 @@ def import_students():
 def google_auth(req: GoogleAuthRequest):
     """Authenticate user with Google OAuth token"""
     try:
-        # Verify the Google token
-        idinfo = id_token.verify_oauth2_token(
-            req.token, 
-            requests.Request(), 
-            GOOGLE_CLIENT_ID
-        )
-        
-        # Extract user info
-        email = idinfo.get('email', '')
-        name = idinfo.get('name', email.split('@')[0] if email else 'User')
+        # If no GOOGLE_CLIENT_ID configured, skip verification for development
+        if not GOOGLE_CLIENT_ID:
+            print('⚠️  WARNING: GOOGLE_CLIENT_ID not set - using development mode')
+            # Development mode: extract email from token without verification
+            # This is INSECURE and should only be used for local testing
+            import base64
+            import json
+            try:
+                # Try to decode JWT payload (not verifying signature)
+                parts = req.token.split('.')
+                if len(parts) >= 2:
+                    payload = parts[1]
+                    # Add padding if needed
+                    payload += '=' * (4 - len(payload) % 4)
+                    decoded = base64.urlsafe_b64decode(payload)
+                    idinfo = json.loads(decoded)
+                    email = idinfo.get('email', '')
+                    name = idinfo.get('name', email.split('@')[0] if email else 'User')
+                else:
+                    raise ValueError("Invalid token format")
+            except:
+                raise HTTPException(status_code=401, detail='Invalid token format')
+        else:
+            # Production mode: verify with Google
+            idinfo = id_token.verify_oauth2_token(
+                req.token, 
+                requests.Request(), 
+                GOOGLE_CLIENT_ID
+            )
+            email = idinfo.get('email', '')
+            name = idinfo.get('name', email.split('@')[0] if email else 'User')
         
         # Validate email exists
         if not email:

@@ -51,28 +51,23 @@
 
     <div class="container">
         <div id="loginSection" class="card">
-            <h2>Login with Google</h2>
-            <p style="color: #666; margin-bottom: 20px;">Secure authentication using your Google account</p>
+            <h2>🎓 Gateway Permission System</h2>
+            <p style="color: #666; margin: 20px 0;">Sign in with your college Google account</p>
             
-            <div id="simpleLogin" style="display: none;">
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <input type="email" id="emailLogin" placeholder="Enter your email">
-                </div>
-                <button class="btn btn-primary" onclick="simpleLogin()" style="width: 100%;">
-                    🔐 Login
-                </button>
-                <p style="color: #999; font-size: 12px; margin-top: 10px; text-align: center;">
-                    Quick login mode - No password required
-                </p>
-            </div>
-            
-            <div class="google-btn-container" id="googleBtnContainer">
+            <div class="google-btn-container" id="googleBtnContainer" style="display: flex; justify-content: center; margin: 30px 0;">
                 <div id="g_id_onload"
-                     data-client_id="896563148898-u92eg641v7h3dqm9up4a31n5367fu1il.apps.googleusercontent.com"
-                     data-callback="handleGoogleLogin">
+                     data-client_id="745219283704-bsdrvaldieopi6bj3h5d4r2n51d42l0q.apps.googleusercontent.com"
+                     data-callback="handleGoogleLogin"
+                     data-auto_prompt="false">
                 </div>
                 <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline"></div>
+            </div>
+            
+            <div style="background: #d4edda; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid #28a745;">
+                <p style="margin: 0; font-size: 13px; color: #155724;">
+                    ✅ <strong>Google OAuth Configured!</strong><br>
+                    Click the button above to sign in with your @bvrithyderabad.edu.in account
+                </p>
             </div>
         </div>
 
@@ -112,6 +107,9 @@
         <div id="teacherDashboard" class="section">
             <div class="card">
                 <h2>Teacher Dashboard <button class="logout-btn" onclick="logout()">Logout</button></h2>
+                <p style="color: #666; font-size: 13px; margin-top: 10px;">
+                    🔄 Auto-refreshing every 10 seconds
+                </p>
             </div>
             <div class="card">
                 <h2>Pending Approvals</h2>
@@ -122,6 +120,9 @@
         <div id="hodDashboard" class="section">
             <div class="card">
                 <h2>HOD Dashboard <button class="logout-btn" onclick="logout()">Logout</button></h2>
+                <p style="color: #666; font-size: 13px; margin-top: 10px;">
+                    🔄 Auto-refreshing every 10 seconds
+                </p>
             </div>
             <div class="card">
                 <h2>Pending Approvals</h2>
@@ -145,9 +146,74 @@
     <script>
         // Auto-detect API URL based on environment
         const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'http://localhost:3000/api'
+            ? 'http://127.0.0.1:8080/api'
             : window.location.origin + '/api';
         let currentUser = null, currentRole = null, currentToken = null, currentStudentTab = 'pending';
+        let autoRefreshInterval = null;
+        
+        // Load saved session on page load
+        function loadSession() {
+            const savedToken = localStorage.getItem('authToken');
+            const savedUser = localStorage.getItem('authUser');
+            const savedRole = localStorage.getItem('authRole');
+            
+            if (savedToken && savedUser && savedRole) {
+                currentToken = savedToken;
+                currentUser = JSON.parse(savedUser);
+                currentRole = savedRole;
+                
+                // Show appropriate dashboard
+                if (currentRole === 'student') {
+                    showDashboard('studentDashboard');
+                    document.getElementById('studentName').textContent = currentUser.name;
+                    loadStudentRequests();
+                } else if (currentRole === 'teacher') {
+                    showDashboard('teacherDashboard');
+                    loadTeacherRequests();
+                    startAutoRefresh('teacher');
+                } else if (currentRole === 'hod') {
+                    showDashboard('hodDashboard');
+                    loadHODRequests();
+                    startAutoRefresh('hod');
+                }
+            }
+        }
+        
+        // Save session to localStorage
+        function saveSession() {
+            localStorage.setItem('authToken', currentToken);
+            localStorage.setItem('authUser', JSON.stringify(currentUser));
+            localStorage.setItem('authRole', currentRole);
+        }
+        
+        // Clear session
+        function clearSession() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('authUser');
+            localStorage.removeItem('authRole');
+            stopAutoRefresh();
+        }
+        
+        // Auto-refresh for teachers and HODs
+        function startAutoRefresh(role) {
+            stopAutoRefresh(); // Clear any existing interval
+            
+            // Refresh every 10 seconds
+            autoRefreshInterval = setInterval(() => {
+                if (role === 'teacher') {
+                    loadTeacherRequests();
+                } else if (role === 'hod') {
+                    loadHODRequests();
+                }
+            }, 10000); // 10 seconds
+        }
+        
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
         
         // API Helper
         async function apiCall(endpoint, method = 'GET', body = null, useToken = true) {
@@ -209,6 +275,9 @@
                 currentUser = data.user;
                 currentRole = data.user.role;
                 
+                // Save session
+                saveSession();
+                
                 if (currentRole === 'student') {
                     showDashboard('studentDashboard');
                     document.getElementById('studentName').textContent = data.user.name;
@@ -216,22 +285,21 @@
                 } else if (currentRole === 'teacher') {
                     showDashboard('teacherDashboard');
                     loadTeacherRequests();
+                    startAutoRefresh('teacher');
                 } else if (currentRole === 'hod') {
                     showDashboard('hodDashboard');
                     loadHODRequests();
+                    startAutoRefresh('hod');
                 }
             } catch (error) {
                 alert('Login failed: ' + error.message);
             }
         }
 
-        // Check if Google OAuth is configured
+        // On page load - restore session and show Google OAuth
         window.onload = function() {
-            const clientId = document.querySelector('[data-client_id]')?.getAttribute('data-client_id');
-            if (clientId && clientId !== 'YOUR_GOOGLE_CLIENT_ID' && clientId.includes('.apps.googleusercontent.com')) {
-                document.getElementById('simpleLogin').style.display = 'none';
-                document.getElementById('googleBtnContainer').style.display = 'flex';
-            }
+            document.getElementById('googleBtnContainer').style.display = 'flex';
+            loadSession(); // Restore previous session if exists
         };
 
         async function login() {
@@ -274,6 +342,7 @@
             currentUser = null;
             currentRole = null;
             currentToken = null;
+            clearSession(); // Clear saved session
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.getElementById('loginSection').style.display = 'block';
         }
