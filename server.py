@@ -154,6 +154,18 @@ def list_users():
     conn.close()
     return {'users': users}
 
+@app.post('/api/admin/reset-users')
+def reset_users():
+    """Delete all users and re-import"""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('DELETE FROM users')
+    conn.commit()
+    conn.close()
+    
+    # Now import fresh users
+    return import_students()
+
 @app.post('/api/admin/update-user-role')
 def update_user_role():
     """Update user role and delete specific user"""
