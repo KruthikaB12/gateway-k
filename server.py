@@ -379,33 +379,39 @@ def submit_request(req: RequestSubmit, user = Depends(verify_token)):
         
         conn.commit()
         last_id = c.lastrowid
+        
+        # Send email to parent (before closing connection)
+        try:
+            send_parent_approval_email(
+                student['parent_email'],
+                student['name'],
+                req.type,
+                req.date,
+                req.time,
+                req.reason,
+                token
+            )
+        except Exception as email_error:
+            # Email failed but request is saved
+            print(f"Email sending failed: {email_error}")
+        
+        conn.close()
+        
+        return {
+            'message': 'Request submitted successfully',
+            'requestId': request_id,
+            'id': last_id,
+            'parentToken': token
+        }
+        
     except HTTPException:
         conn.rollback()
+        conn.close()
         raise
     except Exception as e:
         conn.rollback()
         conn.close()
         raise HTTPException(status_code=500, detail=f'Failed to submit request: {str(e)}')
-    
-    conn.close()
-    
-    # Send email to parent
-    send_parent_approval_email(
-        student['parent_email'],
-        student['name'],
-        req.type,
-        req.date,
-        req.time,
-        req.reason,
-        token
-    )
-    
-    return {
-        'message': 'Request submitted successfully',
-        'requestId': request_id,
-        'id': last_id,
-        'parentToken': token
-    }
 
 @app.get('/api/student/requests')
 def get_student_requests(user = Depends(verify_token)):
