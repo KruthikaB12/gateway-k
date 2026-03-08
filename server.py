@@ -347,9 +347,17 @@ def submit_request(req: RequestSubmit, user = Depends(verify_token)):
         
         # Get student
         c.execute('SELECT * FROM users WHERE id = ?', (user['id'],))
-        student = c.fetchone()
+        student_row = c.fetchone()
         
-        if not student['parent_email']:
+        if not student_row:
+            conn.rollback()
+            conn.close()
+            raise HTTPException(status_code=400, detail='Student record not found')
+        
+        # Convert Row to dict
+        student = dict(student_row)
+        
+        if not student.get('parent_email'):
             conn.rollback()
             conn.close()
             raise HTTPException(status_code=400, detail='Parent email not configured. Please contact admin.')
